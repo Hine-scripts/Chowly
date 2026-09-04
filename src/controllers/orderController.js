@@ -248,11 +248,29 @@ const getOrderById = async (req, res) => {
       });
     }
 
+    const paymentResult = await pool.query(
+        `SELECT
+         id,
+         amount,
+         payment_method,
+         status,
+         transaction_reference,
+         paid_at
+    FROM payments
+    WHERE order_id = $1
+    ORDER BY id DESC
+    LIMIT 1`,
+    [id]
+    );
+
+const payment = paymentResult.rows[0] || null;
+
     res.json({
       success: true,
       order: {
         ...order,
         items,
+        payment,
       },
     });
   } catch (error) {
