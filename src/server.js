@@ -9,6 +9,7 @@ const menuRoutes = require("./routes/menuRoutes");
 const mealRoutes = require("./routes/mealRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const authRoutes = require("./routes/authRoutes");
+const staffRoutes = require("./routes/staffRoutes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/meals", mealRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/staff", staffRoutes);
 
 // Home route
 app.get("/", (req, res) => {
