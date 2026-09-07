@@ -1,0 +1,262 @@
+/* =========================================
+   MY ORDERS PAGE
+   ========================================= */
+
+.my-orders-page {
+  min-height: 100vh;
+  padding: 96px 24px 64px;
+}
+
+.my-orders-page .my-orders-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.my-orders-page .my-orders-heading {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.my-orders-page .my-orders-heading h1 {
+  font-family: var(--restaurant-heading-font, "Playfair Display", serif);
+  font-size: 2.2rem;
+  margin: 6px 0 10px;
+}
+
+.my-orders-page .my-orders-heading p {
+  color: var(--restaurant-text, #555);
+  font-size: 0.95rem;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.my-orders-list {
+  display: grid;
+  gap: 16px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.my-order-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  padding: 22px 24px;
+  border-radius: 18px;
+
+  background: var(--restaurant-surface, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.my-order-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.my-order-ref {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-order-ref strong {
+  font-size: 1.15rem;
+  color: var(--restaurant-primary, #2f2f2f);
+}
+
+.my-order-ref .my-order-restaurant {
+  font-size: 0.85rem;
+  color: var(--restaurant-accent, #777);
+  font-weight: 700;
+}
+
+.my-order-ref .my-order-time {
+  font-size: 0.78rem;
+  color: var(--restaurant-text, #888);
+}
+
+.my-order-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.my-status-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.my-status-PENDING {
+  background: #f3e2c7;
+  color: #8a5a00;
+}
+
+.my-status-CONFIRMED {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.my-status-PREPARING {
+  background: #fde8d1;
+  color: #9a4d00;
+}
+
+.my-status-READY {
+  background: #d9f4e3;
+  color: #1a7a45;
+}
+
+.my-status-SERVED {
+  background: #e7dcfd;
+  color: #5b3aa6;
+}
+
+.my-status-COMPLETED {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.my-status-CANCELLED {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.my-payment-badge {
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.my-payment-PAID {
+  background: #d9f4e3;
+  color: #1a7a45;
+}
+
+.my-payment-UNPAID {
+  background: #fde8d1;
+  color: #9a4d00;
+}
+
+.my-order-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 18px;
+}
+
+.my-order-details > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-order-details span {
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--restaurant-text, #888);
+}
+
+.my-order-details strong {
+  font-size: 0.9rem;
+  color: var(--restaurant-primary, #2f2f2f);
+}
+
+.my-order-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.my-order-track {
+  flex: 1;
+
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 12px;
+
+  background: var(--restaurant-primary, #3d2929);
+  color: #ffffff;
+
+  font-family: var(--restaurant-body-font, "DM Sans", sans-serif);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+
+  cursor: pointer;
+
+  transition: opacity 0.15s ease;
+}
+
+.my-order-track:hover {
+  opacity: 0.88;
+}
+
+.my-order-remove {
+  padding: 12px 16px;
+  border: 1.5px solid var(--restaurant-text, #ccc);
+  border-radius: 12px;
+
+  background: transparent;
+  color: var(--restaurant-text, #666);
+
+  font-family: var(--restaurant-body-font, "DM Sans", sans-serif);
+  font-size: 0.78rem;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition: opacity 0.15s ease;
+}
+
+.my-order-remove:hover {
+  opacity: 0.7;
+}
+
+.my-orders-empty {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 30px;
+  text-align: center;
+
+  border-radius: 18px;
+  background: var(--restaurant-surface, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.my-orders-empty-icon {
+  font-size: 2.6rem;
+  margin-bottom: 10px;
+}
+
+.my-orders-empty strong {
+  display: block;
+  font-size: 1.05rem;
+  color: var(--restaurant-primary, #2f2f2f);
+  margin-bottom: 6px;
+}
+
+.my-orders-empty p {
+  font-size: 0.88rem;
+  color: var(--restaurant-text, #666);
+  margin-bottom: 18px;
+}
+
+@media (max-width: 620px) {
+  .my-order-actions {
+    flex-direction: column;
+  }
+}

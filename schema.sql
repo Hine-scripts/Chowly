@@ -32,8 +32,6 @@ CREATE TABLE IF NOT EXISTS restaurants (
 
 -- ============================================
 -- RESTAURANT STAFF
--- Connects users to restaurants and gives them
--- roles such as WAITER, CHEF or BARTENDER
 -- ============================================
 CREATE TABLE IF NOT EXISTS restaurant_staff (
     id SERIAL PRIMARY KEY,
@@ -53,16 +51,6 @@ CREATE TABLE IF NOT EXISTS restaurant_staff (
 
 -- ============================================
 -- CATEGORIES
--- Supports parent/child menu categories
---
--- Example:
--- Main Meals
---   ├── Local
---   └── Continental
---
--- Drinks
---   ├── Alcoholic
---   └── Non-Alcoholic
 -- ============================================
 CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
@@ -81,7 +69,6 @@ CREATE TABLE IF NOT EXISTS categories (
 
 -- ============================================
 -- MENU ITEMS
--- Actual food and drink items sold by restaurants
 -- ============================================
 CREATE TABLE IF NOT EXISTS menu_items (
     id SERIAL PRIMARY KEY,
@@ -110,16 +97,6 @@ CREATE TABLE IF NOT EXISTS menu_items (
 
 -- ============================================
 -- MENU OPTIONS
--- Reusable customization/add-on options
---
--- Examples:
--- Chicken
--- Beef
--- Turkey
--- Ponmo
--- Egg
--- Ewedu
--- Gbegiri
 -- ============================================
 CREATE TABLE IF NOT EXISTS menu_options (
     id SERIAL PRIMARY KEY,
@@ -143,8 +120,6 @@ CREATE TABLE IF NOT EXISTS menu_options (
 
 -- ============================================
 -- MENU ITEM OPTIONS
--- Connects menu items to their available
--- customization options
 -- ============================================
 CREATE TABLE IF NOT EXISTS menu_item_options (
     id SERIAL PRIMARY KEY,
@@ -167,7 +142,6 @@ CREATE TABLE IF NOT EXISTS menu_item_options (
 
 -- ============================================
 -- ORDERS
--- Customer orders placed at a restaurant
 -- ============================================
 CREATE TABLE IF NOT EXISTS orders (
     id SERIAL PRIMARY KEY,
@@ -177,6 +151,14 @@ CREATE TABLE IF NOT EXISTS orders (
 
     customer_id INTEGER NOT NULL
         REFERENCES users(id),
+
+    customer_name VARCHAR(100) NOT NULL,
+
+    customer_phone VARCHAR(30) NOT NULL,
+
+    table_number VARCHAR(30) NOT NULL,
+
+    special_request TEXT,
 
     waiter_id INTEGER
         REFERENCES restaurant_staff(id),
@@ -194,8 +176,23 @@ CREATE TABLE IF NOT EXISTS orders (
 
 
 -- ============================================
+-- ADD ORDER CUSTOMER DETAILS TO EXISTING DATABASES
+-- ============================================
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS customer_name VARCHAR(100);
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(30);
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS table_number VARCHAR(30);
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS special_request TEXT;
+
+
+-- ============================================
 -- ORDER ITEMS
--- Individual items within an order
 -- ============================================
 CREATE TABLE IF NOT EXISTS order_items (
     id SERIAL PRIMARY KEY,
@@ -220,8 +217,29 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 
 -- ============================================
+-- ORDER ITEM OPTIONS
+-- Chosen customization options for an order item
+-- ============================================
+CREATE TABLE IF NOT EXISTS order_item_options (
+    id SERIAL PRIMARY KEY,
+
+    order_item_id INTEGER NOT NULL
+        REFERENCES order_items(id) ON DELETE CASCADE,
+
+    menu_option_id INTEGER NOT NULL
+        REFERENCES menu_options(id),
+
+    quantity INTEGER NOT NULL DEFAULT 1
+        CHECK (quantity > 0),
+
+    unit_price DECIMAL(10, 2) NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- ============================================
 -- COMPLAINTS
--- Customer complaints related to orders
 -- ============================================
 CREATE TABLE IF NOT EXISTS complaints (
     id SERIAL PRIMARY KEY,
@@ -242,7 +260,6 @@ CREATE TABLE IF NOT EXISTS complaints (
 
 -- ============================================
 -- RATINGS
--- Customer ratings for completed orders
 -- ============================================
 CREATE TABLE IF NOT EXISTS ratings (
     id SERIAL PRIMARY KEY,
@@ -266,11 +283,6 @@ CREATE TABLE IF NOT EXISTS ratings (
 
 -- ============================================
 -- PAYMENTS
--- Records customer payments
---
--- Pretend payments are allowed by the assignment,
--- but the application must clearly label them
--- as pretend/demo payments.
 -- ============================================
 CREATE TABLE IF NOT EXISTS payments (
     id SERIAL PRIMARY KEY,
@@ -288,4 +300,3 @@ CREATE TABLE IF NOT EXISTS payments (
 
     paid_at TIMESTAMP
 );
-
