@@ -1,6 +1,152 @@
 const pool = require("../config/database");
 
 // ============================================
+// ITEM-TYPE DETECTION HELPERS
+//
+// Drinks are identified by PARTY TYPE = 'DRINK'
+// or a category containing drink/beverage/bar/
+// alcoholic/non-alcoholic. Food is anything
+// that is not a drink. These helpers are used
+// by the order status logic so a Chef action
+// only ever touches food items and a Bartender
+// action only ever touches drink items.
+// ============================================
+function isDrinkItemLocal(item) {
+  const itemType = String(
+    item.item_type || ""
+  ).toUpperCase();
+  const category = String(
+    item.category_name || ""
+  ).toLowerCase();
+
+  return (
+    itemType === "DRINK" ||
+    category.includes("drink") ||
+    category.includes("beverage") ||
+    category.includes("bar") ||
+    category.includes("alcoholic") ||
+    category.includes("non-alcoholic")
+  );
+}
+
+function buildDrinkConditionForItems() {
+  return `
+    mi.item_type = 'DRINK'
+    OR COALESCE(mi.item_type, '') ILIKE '%DRINK%'
+    OR COALESCE(c.name, '') ILIKE '%drink%'
+    OR COALESCE(c.name, '') ILIKE '%beverage%'
+    OR COALESCE(c.name, '') ILIKE '%bar%'
+    OR COALESCE(c.name, '') ILIKE '%alcoholic%'
+    OR COALESCE(c.name, '') ILIKE '%non-alcoholic%'
+  `;
+}
+
+// ============================================
+// RECALCULATE ORDER STATUS FROM ITEM STATUSES
+//
+// The overall order status is derived from the
+// preparation status of EVERY order item:
+//
+//   - ALL items READY           -> READY
+//   - any item PREPARING/READY  -> PREPARING
+//   - no item started yet       -> leave as-is
+//
+// This is the function that prevents one staff
+// member's action from marking the whole order
+// (including the other role's items) as done.
+// ============================================
+async function recalculateOrderStatus(orderId) {
+  const itemsResult = await pool.query(
+    `
+    SELECT
+      oi.status,
+      mi.item_type,
+      c.name AS category_name
+    FROM order_items oi
+    INNER JOIN menu_items mi
+      ON mi.id = oi.menu_item_id
+    LEFT JOIN categories c
+      ON c.id = mi.category_id
+    WHERE oi.order_id = $1
+    `,
+    [orderId]
+  );
+
+  if (itemsResult.rows.length === 0) {
+    return;
+  }
+
+  const statuses = itemsResult.rows.map(
+    (item) => item.status || "PENDING"
+  );
+
+  const allReady = statuses.every(
+    (itemStatus) => itemStatus === "READY"
+  );
+
+  const anyPreparing = statuses.some(
+    (itemStatus) =>
+      itemStatus === "PREPARING" ||
+      itemStatus === "READY"
+  );
+
+  let newStatus = null;
+
+  if (allReady) {
+    newStatus = "READY";
+  } else if (anyPreparing) {
+    newStatus = "PREPARING";
+  } else {
+    // Every item is still PENDING; the order
+    // status should not change here.
+    return;
+  }
+
+  const orderResult = await pool.query(
+    `
+    SELECT status
+    FROM orders
+    WHERE id = $1
+    `,
+    [orderId]
+  );
+
+  if (orderResult.rows.length === 0) {
+    return;
+  }
+
+  const currentStatus = orderResult.rows[0].status;
+
+  const statusOrder = [
+    "PENDING",
+    "CONFIRMED",
+    "PREPARING",
+    "READY",
+    "SERVED",
+    "COMPLETED",
+    "CANCELLED",
+  ];
+
+  const currentIndex =
+    statusOrder.indexOf(currentStatus);
+  const newIndex = statusOrder.indexOf(newStatus);
+
+  // Only advance the order state forward.
+  if (newIndex > currentIndex) {
+    await pool.query(
+      `
+      UPDATE orders
+      SET
+        status = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [newStatus, orderId]
+    );
+  }
+}
+
+// ============================================
 // CREATE ORDER
 // ============================================
 const createOrder = async (req, res) => {
@@ -608,6 +754,7 @@ const getOrderById = async (
           oi.menu_item_id,
           mi.name AS menu_item_name,
           mi.item_type,
+          oi.status AS preparation_status,
 
           mi.category_id,
           c.name AS category_name,
@@ -1151,6 +1298,26 @@ const assignPreparationStaff = async (
 
 // ============================================
 // UPDATE ORDER STATUS
+//
+// Order-level transitions (CONFIRMED, SERVED,
+// CANCELLED) are handled by WAITER/ADMIN and
+// update the orders table directly.
+//
+// Preparation transitions (PREPARING, READY)
+// are driven by the CHEF and BARTENDER. Those
+// updates touch ONLY the items belonging to the
+// acting role:
+//
+//   - CHEF marking PREPARING/READY affects only
+//     food items.
+//   - BARTENDER marking PREPARING/READY affects
+//     only drink items.
+//   - ADMIN (no role sent) affects all items.
+//
+// After the item-level update the overall order
+// status is re-calculated from every item, so a
+// single Chef action can never mark drinks (or
+// the whole mixed order) as READY.
 // ============================================
 const updateOrderStatus = async (
   req,
@@ -1158,7 +1325,7 @@ const updateOrderStatus = async (
 ) => {
   try {
     const { id } = req.params;
-    const { status } =
+    const { status, role } =
       req.body;
 
     const allowedStatuses = [
@@ -1220,13 +1387,14 @@ const updateOrderStatus = async (
     if (
       status === "READY" &&
       ![
+        "CONFIRMED",
         "PREPARING",
         "READY",
       ].includes(currentStatus)
     ) {
       return res.status(400).json({
         message:
-          "An order must be PREPARING before it can be marked as READY",
+          "An order must be at least CONFIRMED before its items can be marked as READY",
       });
     }
 
@@ -1276,6 +1444,95 @@ const updateOrderStatus = async (
       });
     }
 
+    // ============================================
+    // PREPARATION TRANSITIONS (PREPARING / READY)
+    // ============================================
+    if (
+      status === "PREPARING" ||
+      status === "READY"
+    ) {
+      const drinkCondition =
+        buildDrinkConditionForItems();
+
+      if (role === "CHEF") {
+        // Mark only food items.
+        await pool.query(
+          `
+          UPDATE order_items AS oi
+          SET status = $1
+          FROM menu_items mi
+          LEFT JOIN categories c
+            ON c.id =
+              mi.category_id
+          WHERE oi.order_id = $2
+            AND oi.menu_item_id =
+              mi.id
+            AND NOT (
+              ${drinkCondition}
+            )
+          `,
+          [status, id]
+        );
+      } else if (
+        role === "BARTENDER"
+      ) {
+        // Mark only drink items.
+        await pool.query(
+          `
+          UPDATE order_items AS oi
+          SET status = $1
+          FROM menu_items mi
+          LEFT JOIN categories c
+            ON c.id =
+              mi.category_id
+          WHERE oi.order_id = $2
+            AND oi.menu_item_id =
+              mi.id
+            AND (
+              ${drinkCondition}
+            )
+          `,
+          [status, id]
+        );
+      } else {
+        // ADMIN or no role: mark every item.
+        await pool.query(
+          `
+          UPDATE order_items
+          SET status = $1
+          WHERE order_id = $2
+          `,
+          [status, id]
+        );
+      }
+
+      // Recalculate the overall order status
+      // from the preparation status of every
+      // item on the order.
+      await recalculateOrderStatus(id);
+
+      const updatedOrderResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE id = $1
+          `,
+          [id]
+        );
+
+      return res.json({
+        message:
+          "Order status updated successfully",
+        order:
+          updatedOrderResult.rows[0],
+      });
+    }
+
+    // ============================================
+    // ORDER-LEVEL TRANSITIONS
+    // (CONFIRMED / SERVED / CANCELLED)
+    // ============================================
     const result =
       await pool.query(
         `

@@ -491,8 +491,15 @@ function StaffDashboard() {
    *
    * Payment is deliberately NOT part
    * of this order-status sequence.
+   *
+   * CHEF and BARTENDER advance THEIR OWN
+   * preparation items instead of the whole
+   * order. A Chef can therefore mark food
+   * PREPARING/READY without touching drinks,
+   * and a Bartender can do the same for
+   * drinks without touching food.
    */
-  function getNextStatus(status) {
+  function getNextStatus(status, order) {
     if (activeRole === "WAITER") {
       if (status === "PENDING") {
         return "CONFIRMED";
@@ -505,27 +512,55 @@ function StaffDashboard() {
       return null;
     }
 
-    if (activeRole === "CHEF") {
-      if (status === "CONFIRMED") {
+    if (
+      activeRole === "CHEF" ||
+      activeRole === "BARTENDER"
+    ) {
+      /*
+       * Compute the next action from the
+       * preparation status of the items this
+       * role controls.
+       *
+       *   some PENDING  -> PREPARING
+       *   some PREPARING -> READY
+       *   none (all READY) -> null
+       */
+      const items = order?.items || [];
+      const relevantItems =
+        activeRole === "CHEF"
+          ? items.filter(isFoodItem)
+          : items.filter(isDrinkItem);
+
+      if (relevantItems.length === 0) {
+        return null;
+      }
+
+      const pending = relevantItems.some(
+        (item) =>
+          String(
+            item.preparation_status ||
+              "PENDING"
+          ).toUpperCase() === "PENDING"
+      );
+
+      const preparing = relevantItems.some(
+        (item) =>
+          String(
+            item.preparation_status ||
+              "PENDING"
+          ).toUpperCase() === "PREPARING"
+      );
+
+      if (pending) {
         return "PREPARING";
       }
 
-      if (status === "PREPARING") {
+      if (preparing) {
         return "READY";
       }
 
-      return null;
-    }
-
-    if (activeRole === "BARTENDER") {
-      if (status === "CONFIRMED") {
-        return "PREPARING";
-      }
-
-      if (status === "PREPARING") {
-        return "READY";
-      }
-
+      // Everything this role controls is already
+      // READY; there is nothing left to do.
       return null;
     }
 
@@ -558,6 +593,13 @@ function StaffDashboard() {
 
   /*
    * Update order status
+   *
+   * CHEF and BARTENDER send their role so the
+   * backend only advances THEIR preparation items
+   * (food for the Chef, drinks for the Bartender).
+   * The overall order status is then derived from
+   * every item, so one role can never mark the
+   * whole mixed order as READY.
    */
   async function updateStatus(status) {
     if (!selectedOrder) {
@@ -568,11 +610,18 @@ function StaffDashboard() {
       setUpdatingStatus(true);
       setError("");
 
+      const payload = { status };
+
+      if (
+        activeRole === "CHEF" ||
+        activeRole === "BARTENDER"
+      ) {
+        payload.role = activeRole;
+      }
+
       const response = await api.patch(
         `/orders/${selectedOrder.id}/status`,
-        {
-          status,
-        }
+        payload
       );
 
       const updatedOrder =
@@ -581,10 +630,15 @@ function StaffDashboard() {
       setSelectedOrder((current) => ({
         ...current,
         ...(updatedOrder || {}),
-        status,
+        status:
+          updatedOrder?.status ||
+          status,
       }));
 
       await loadOrders(false);
+      await loadOrderDetails(
+        selectedOrder.id
+      );
     } catch (err) {
       console.error(
         "Order status update error:",
@@ -750,7 +804,8 @@ function StaffDashboard() {
 
   const nextStatus = selectedOrder
     ? getNextStatus(
-        selectedOrder.status
+        selectedOrder.status,
+        selectedOrder
       )
     : null;
 
@@ -1467,6 +1522,27 @@ function StaffDashboard() {
                                     ? "Drink"
                                     : "Food"}
                                 </span>
+                              </div>
+
+                              {/* PREPARATION STATUS */}
+
+                              <div className="staff-assignment">
+                                <span>
+                                  Preparation
+                                </span>
+
+                                <strong
+                                  className={`staff-status staff-status-${String(
+                                    item.preparation_status ||
+                                      "PENDING"
+                                  ).toLowerCase()}`}
+                                >
+                                  {STATUS_LABELS[
+                                    item.preparation_status
+                                  ] ||
+                                    item.preparation_status ||
+                                    "Pending"}
+                                </strong>
                               </div>
                             </div>
                           );

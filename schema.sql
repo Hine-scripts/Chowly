@@ -212,8 +212,13 @@ CREATE TABLE IF NOT EXISTS order_items (
         REFERENCES restaurant_staff(id),
 
     bartender_id INTEGER
-        REFERENCES restaurant_staff(id)
+        REFERENCES restaurant_staff(id),
+
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING'
 );
+
+ALTER TABLE order_items
+ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'PENDING';
 
 
 -- ============================================
